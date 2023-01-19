@@ -30,6 +30,8 @@ func NewAbsensiHandler(router *mux.Router, validate *validator.Validate, usecase
 	router.HandleFunc("/register", handler.Register).Methods(http.MethodPost)
 	router.HandleFunc("/login", handler.Login).Methods(http.MethodPost)
 	api.HandleFunc("/update", handler.Update).Methods(http.MethodPatch)
+	api.HandleFunc("/profile", handler.ReadOne).Methods(http.MethodGet)
+	api.HandleFunc("/delete", handler.Delete).Methods(http.MethodDelete)
 }
 
 func (handler *AccountHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -131,6 +133,54 @@ func (handler *AccountHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res = handler.UseCase.Update(ctx, claims.ID, userInput)
+
+	res.JSON(w)
+}
+
+func (handler *AccountHandler) ReadOne(w http.ResponseWriter, r *http.Request) {
+	var res response.Response
+
+	ctx := r.Context()
+
+	c, err := r.Cookie("token")
+	if err != nil {
+		res = response.Error(response.StatusUnauthorized, exception.ErrUnauthorized)
+		res.JSON(w)
+		return
+	}
+
+	tokenString := c.Value
+	claims := &jwt.JWTclaim{}
+
+	newJWT.ParseWithClaims(tokenString, claims, func(t *newJWT.Token) (interface{}, error) {
+		return jwt.JWT_KEY, nil
+	})
+
+	res = handler.UseCase.ReadOne(ctx, claims.ID)
+
+	res.JSON(w)
+}
+
+func (handler *AccountHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	var res response.Response
+
+	ctx := r.Context()
+
+	c, err := r.Cookie("token")
+	if err != nil {
+		res = response.Error(response.StatusUnauthorized, exception.ErrUnauthorized)
+		res.JSON(w)
+		return
+	}
+
+	tokenString := c.Value
+	claims := &jwt.JWTclaim{}
+
+	newJWT.ParseWithClaims(tokenString, claims, func(t *newJWT.Token) (interface{}, error) {
+		return jwt.JWT_KEY, nil
+	})
+
+	res = handler.UseCase.Delete(ctx, claims.ID)
 
 	res.JSON(w)
 }

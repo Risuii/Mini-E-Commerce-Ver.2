@@ -110,13 +110,59 @@ func (au *accountUseCaseImpl) Login(ctx context.Context, params account.AccountL
 }
 
 func (au *accountUseCaseImpl) Update(ctx context.Context, id int64, params account.Account) response.Response {
-	return nil
+	user, err := au.repo.FindByID(ctx, id)
+	if err == exception.ErrNotFound {
+		return response.Error(response.StatusNotFound, exception.ErrNotFound)
+	}
+	if err != nil {
+		return response.Error(response.StatusInternalServerError, exception.ErrInternalServer)
+	}
+
+	hashedPassword, err := au.bcrypt.HashPassword(params.Password)
+	if err != nil {
+		return response.Error(response.StatusUnauthorized, exception.ErrUnauthorized)
+	}
+
+	user.Name = params.Name
+	user.Password = hashedPassword
+	user.Email = params.Email
+	user.Address = params.Address
+	user.UpdateAt = time.Now()
+
+	if err := au.repo.Update(ctx, id, user); err != nil {
+		return response.Error(response.StatusInternalServerError, exception.ErrInternalServer)
+	}
+
+	return response.Success(response.StatusOK, user)
 }
 
 func (au *accountUseCaseImpl) ReadOne(ctx context.Context, id int64) response.Response {
-	return nil
+	user, err := au.repo.FindByID(ctx, id)
+	if err == exception.ErrNotFound {
+		return response.Error(response.StatusNotFound, exception.ErrNotFound)
+	}
+
+	if err != nil {
+		return response.Error(response.StatusInternalServerError, exception.ErrInternalServer)
+	}
+
+	return response.Success(response.StatusOK, user)
 }
 
 func (au *accountUseCaseImpl) Delete(ctx context.Context, id int64) response.Response {
-	return nil
+	user, err := au.repo.FindByID(ctx, id)
+	if err == exception.ErrNotFound {
+		return response.Error(response.StatusNotFound, exception.ErrNotFound)
+	}
+	if err != nil {
+		return response.Error(response.StatusInternalServerError, exception.ErrInternalServer)
+	}
+
+	if err := au.repo.Delete(ctx, user.ID); err != nil {
+		return response.Error(response.StatusInternalServerError, exception.ErrInternalServer)
+	}
+
+	msg := "Success Delete Account"
+
+	return response.Success(response.StatusOK, msg)
 }
