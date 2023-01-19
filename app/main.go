@@ -7,23 +7,33 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/go-playground/validator/v10"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
 	_ "github.com/joho/godotenv/autoload"
 
 	"github.com/Risuii/config"
+	"github.com/Risuii/config/bcrypt"
+	"github.com/Risuii/helpers/constant"
+	"github.com/Risuii/internal/account"
 )
 
 func main() {
 	cfg := config.New()
 
-	_, err := sql.Open("mysql", cfg.Database.DSN)
+	db, err := sql.Open("mysql", cfg.Database.DSN)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// validator := validator.New()
+	validator := validator.New()
 	router := mux.NewRouter()
+	bcrypt := bcrypt.NewBcrypt(cfg.Bcrypt.HashCost)
+
+	userRepo := account.NewAccountRepositoryImpl(db, constant.TableAccount)
+	userUseCase := account.NewAccountUseCaseImpl(userRepo, bcrypt)
+
+	account.NewAbsensiHandler(router, validator, userUseCase)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%s", cfg.App.Port),

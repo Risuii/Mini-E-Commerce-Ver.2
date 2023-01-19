@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -16,12 +17,16 @@ type Config struct {
 	Database struct {
 		DSN string
 	}
+	Bcrypt struct {
+		HashCost int
+	}
 }
 
 func New() *Config {
 	c := new(Config)
 	c.loadApp()
 	c.loadDatabase()
+	c.loadBcrypt()
 
 	return c
 }
@@ -59,6 +64,15 @@ func (c *Config) loadDatabase() *Config {
 	c.Database.DSN = dsn
 
 	c.Database.DSN = dbConnection
+
+	return c
+}
+
+func (c *Config) loadBcrypt() *Config {
+	// env value
+	hashCost := os.Getenv("BCRYPT_HASH_COST")
+
+	c.Bcrypt.HashCost, _ = strconv.Atoi(hashCost)
 
 	return c
 }

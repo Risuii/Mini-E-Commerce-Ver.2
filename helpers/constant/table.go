@@ -1,5 +1,7 @@
 package constant
 
 const (
-	TableCake = "cake"
+	TableAccount = "users"
+	TableStores  = "stores"
+	TableItems   = "items"
 )
