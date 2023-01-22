@@ -7,9 +7,9 @@ import (
 var JWT_KEY = []byte("rahasia")
 
 type JWTclaim struct {
-	ID        int64
-	CheckinID int64
-	Email     string
-	Name      string
+	ID     int64
+	UserID int64
+	Email  string
+	Name   string
 	jwt.StandardClaims
 }

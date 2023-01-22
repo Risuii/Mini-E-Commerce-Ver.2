@@ -86,9 +86,10 @@ func (au *accountUseCaseImpl) Login(ctx context.Context, params account.AccountL
 	user.Password = ""
 
 	claims := &jwt.JWTclaim{
-		ID:    user.ID,
-		Email: user.Email,
-		Name:  user.Name,
+		ID:     user.ID,
+		UserID: user.ID,
+		Email:  user.Email,
+		Name:   user.Name,
 		StandardClaims: newJWT.StandardClaims{
 			IssuedAt:  time.Now().Unix(),
 			ExpiresAt: time.Now().Add(time.Hour * 24 * 1).Unix(),
