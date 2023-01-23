@@ -16,6 +16,7 @@ import (
 	"github.com/Risuii/config/bcrypt"
 	"github.com/Risuii/helpers/constant"
 	"github.com/Risuii/internal/account"
+	"github.com/Risuii/internal/store"
 )
 
 func main() {
@@ -31,9 +32,12 @@ func main() {
 	bcrypt := bcrypt.NewBcrypt(cfg.Bcrypt.HashCost)
 
 	userRepo := account.NewAccountRepositoryImpl(db, constant.TableAccount)
+	storeRepo := store.NewStoreRepository(db, constant.TableStores)
 	userUseCase := account.NewAccountUseCaseImpl(userRepo, bcrypt)
+	storeUseCase := store.NewStoreUseCaseImpl(storeRepo)
 
 	account.NewAbsensiHandler(router, validator, userUseCase)
+	store.NewStoreHandler(router, validator, storeUseCase)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%s", cfg.App.Port),

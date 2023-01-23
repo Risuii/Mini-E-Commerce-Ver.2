@@ -12,7 +12,7 @@ import (
 type (
 	StoreUseCase interface {
 		CreateStore(ctx context.Context, userid int64, params store.Store) response.Response
-		Read(ctx context.Context, id int64) response.Response
+		Read(ctx context.Context, userID int64) response.Response
 		UpdateStore(ctx context.Context, id int64, params store.Store) response.Response
 		DeleteStore(ctx context.Context, id int64) response.Response
 	}
@@ -29,6 +29,12 @@ func NewStoreUseCaseImpl(repo StoreRepository) StoreUseCase {
 }
 
 func (su *storeUseCaseimpl) CreateStore(ctx context.Context, userid int64, params store.Store) response.Response {
+
+	_, err := su.repository.FindByName(ctx, params.NameStore)
+	if err == nil {
+		return response.Error(response.StatusConflicted, exception.ErrConflicted)
+	}
+
 	store := store.Store{
 		UserID:      userid,
 		NameStore:   params.NameStore,
@@ -46,14 +52,63 @@ func (su *storeUseCaseimpl) CreateStore(ctx context.Context, userid int64, param
 	return response.Success(response.StatusCreated, store)
 }
 
-func (su *storeUseCaseimpl) Read(ctx context.Context, id int64) response.Response {
-	return nil
+func (su *storeUseCaseimpl) Read(ctx context.Context, userID int64) response.Response {
+
+	store, err := su.repository.FindByUserID(ctx, userID)
+
+	if err == exception.ErrNotFound {
+		return response.Error(response.StatusNotFound, exception.ErrNotFound)
+	}
+
+	if err != nil {
+		return response.Error(response.StatusInternalServerError, exception.ErrInternalServer)
+	}
+
+	return response.Success(response.StatusOK, store)
 }
 
 func (su *storeUseCaseimpl) UpdateStore(ctx context.Context, id int64, params store.Store) response.Response {
-	return nil
+	stores, err := su.repository.FindByID(ctx, id)
+
+	if err == exception.ErrNotFound {
+		return response.Error(response.StatusNotFound, exception.ErrNotFound)
+	}
+
+	if err != nil {
+		return response.Error(response.StatusInternalServerError, exception.ErrInternalServer)
+	}
+
+	stores = store.Store{
+		UserID:      params.UserID,
+		NameStore:   params.NameStore,
+		Description: params.Description,
+		UpdateAt:    time.Now(),
+	}
+
+	err = su.repository.Update(ctx, id, stores)
+	if err != nil {
+		return response.Error(response.StatusInternalServerError, exception.ErrInternalServer)
+	}
+
+	return response.Success(response.StatusOK, stores)
 }
 
 func (su *storeUseCaseimpl) DeleteStore(ctx context.Context, id int64) response.Response {
-	return nil
+	_, err := su.repository.FindByID(ctx, id)
+	if err == exception.ErrNotFound {
+		return response.Error(response.StatusNotFound, exception.ErrNotFound)
+	}
+
+	if err != nil {
+		return response.Error(response.StatusInternalServerError, exception.ErrInternalServer)
+	}
+
+	err = su.repository.Delete(ctx, id)
+	if err != nil {
+		return response.Error(response.StatusInternalServerError, exception.ErrInternalServer)
+	}
+
+	msg := "Success Delete Store"
+
+	return response.Success(response.StatusOK, msg)
 }
