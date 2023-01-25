@@ -32,6 +32,7 @@ func NewAbsensiHandler(router *mux.Router, validate *validator.Validate, usecase
 	api.HandleFunc("/update", handler.Update).Methods(http.MethodPatch)
 	api.HandleFunc("/profile", handler.ReadOne).Methods(http.MethodGet)
 	api.HandleFunc("/delete", handler.Delete).Methods(http.MethodDelete)
+	api.HandleFunc("/logout", handler.Logout).Methods(http.MethodGet)
 }
 
 func (handler *AccountHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -181,6 +182,31 @@ func (handler *AccountHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	})
 
 	res = handler.UseCase.Delete(ctx, claims.ID)
+
+	res.JSON(w)
+}
+
+func (handler *AccountHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	var res response.Response
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token",
+		Path:     "/",
+		Value:    "",
+		HttpOnly: true,
+		MaxAge:   -1,
+	})
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "Store-token",
+		Path:     "/",
+		Value:    "",
+		HttpOnly: true,
+		MaxAge:   -1,
+	})
+
+	msg := "Success Logout"
+
+	res = response.Success(response.StatusOK, msg)
 
 	res.JSON(w)
 }

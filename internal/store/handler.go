@@ -92,7 +92,14 @@ func (handler *StoreHandler) GetStore(w http.ResponseWriter, r *http.Request) {
 		return jwt.JWT_KEY, nil
 	})
 
-	res = handler.UseCase.Read(ctx, claims.UserID)
+	res, token := handler.UseCase.Read(ctx, claims.UserID)
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "Store-token",
+		Path:     "/",
+		Value:    token.Token,
+		HttpOnly: true,
+	})
 
 	res.JSON(w)
 }
@@ -105,7 +112,7 @@ func (handler *StoreHandler) Store(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	userID, _ := strconv.ParseInt(params["userID"], 10, 64)
 
-	res = handler.UseCase.Read(ctx, userID)
+	res, _ = handler.UseCase.Read(ctx, userID)
 
 	res.JSON(w)
 }

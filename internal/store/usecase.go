@@ -4,15 +4,19 @@ import (
 	"context"
 	"time"
 
+	newJWT "github.com/dgrijalva/jwt-go"
+
+	"github.com/Risuii/config/jwt"
 	"github.com/Risuii/helpers/exception"
 	"github.com/Risuii/helpers/response"
 	"github.com/Risuii/models/store"
+	"github.com/Risuii/models/token"
 )
 
 type (
 	StoreUseCase interface {
 		CreateStore(ctx context.Context, userid int64, params store.Store) response.Response
-		Read(ctx context.Context, userID int64) response.Response
+		Read(ctx context.Context, userID int64) (response.Response, token.Token)
 		UpdateStore(ctx context.Context, id int64, params store.Store) response.Response
 		DeleteStore(ctx context.Context, id int64) response.Response
 	}
@@ -52,19 +56,38 @@ func (su *storeUseCaseimpl) CreateStore(ctx context.Context, userid int64, param
 	return response.Success(response.StatusCreated, store)
 }
 
-func (su *storeUseCaseimpl) Read(ctx context.Context, userID int64) response.Response {
+func (su *storeUseCaseimpl) Read(ctx context.Context, userID int64) (response.Response, token.Token) {
 
 	store, err := su.repository.FindByUserID(ctx, userID)
 
 	if err == exception.ErrNotFound {
-		return response.Error(response.StatusNotFound, exception.ErrNotFound)
+		return response.Error(response.StatusNotFound, exception.ErrNotFound), token.Token{}
 	}
 
 	if err != nil {
-		return response.Error(response.StatusInternalServerError, exception.ErrInternalServer)
+		return response.Error(response.StatusInternalServerError, exception.ErrInternalServer), token.Token{}
 	}
 
-	return response.Success(response.StatusOK, store)
+	claims := &jwt.JWTclaim{
+		StoreID: store[0].ID,
+		StandardClaims: newJWT.StandardClaims{
+			IssuedAt:  time.Now().Unix(),
+			ExpiresAt: time.Now().Add(time.Hour * 24 * 1).Unix(),
+		},
+	}
+
+	tokenAlgo := newJWT.NewWithClaims(newJWT.SigningMethodHS256, claims)
+
+	tokenString, err := tokenAlgo.SignedString(jwt.JWT_KEY)
+	if err != nil {
+		return response.Error(response.StatusInternalServerError, exception.ErrInternalServer), token.Token{}
+	}
+
+	newToken := token.Token{
+		Token: tokenString,
+	}
+
+	return response.Success(response.StatusOK, store), newToken
 }
 
 func (su *storeUseCaseimpl) UpdateStore(ctx context.Context, id int64, params store.Store) response.Response {
