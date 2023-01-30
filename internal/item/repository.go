@@ -13,10 +13,12 @@ import (
 type (
 	ItemRepository interface {
 		AddItem(ctx context.Context, params item.Item) (int64, error)
-		GetAllItem() ([]item.Item, error)
+		GetAllItem(ctx context.Context, storeID int64) ([]item.Item, error)
+		FindByIDWithStoreID(ctx context.Context, id int64, storeID int64) (item.Item, error)
 		FindByID(ctx context.Context, id int64) (item.Item, error)
 		FindByName(ctx context.Context, name string) (item.Item, error)
 		UpdateItem(ctx context.Context, id int64, params item.Item) error
+		UpdateKuantitas(ctx context.Context, id int64, params item.Item) error
 		DeleteItem(ctx context.Context, id int64) error
 	}
 
@@ -61,10 +63,10 @@ func (repo *itemRepositoryImpl) AddItem(ctx context.Context, params item.Item) (
 	return ID, nil
 }
 
-func (repo *itemRepositoryImpl) GetAllItem() ([]item.Item, error) {
+func (repo *itemRepositoryImpl) GetAllItem(ctx context.Context, storeID int64) ([]item.Item, error) {
 	var items []item.Item
 
-	rows, err := repo.DB.Query(fmt.Sprintf(`SELECT id, storeID, name, description, quantity, created_at, update_at FROM %s`, repo.tableName))
+	rows, err := repo.DB.Query(fmt.Sprintf(`SELECT id, storeID, name, description, quantity, created_at, update_at FROM %s WHERE storeID = %d`, repo.tableName, storeID))
 	if err != nil {
 		log.Println(err)
 		return items, exception.ErrInternalServer
@@ -92,10 +94,44 @@ func (repo *itemRepositoryImpl) GetAllItem() ([]item.Item, error) {
 	return items, nil
 }
 
+func (repo *itemRepositoryImpl) FindByIDWithStoreID(ctx context.Context, id int64, storeID int64) (item.Item, error) {
+	var items item.Item
+
+	query := fmt.Sprintf(`SELECT id, storeID, name, description, quantity, created_at, update_at FROM %s WHERE storeID = ? AND id = ?`, repo.tableName)
+
+	stmt, err := repo.DB.PrepareContext(ctx, query)
+	if err != nil {
+		log.Println(err)
+		return items, exception.ErrInternalServer
+	}
+
+	defer stmt.Close()
+
+	row := stmt.QueryRowContext(ctx, storeID, id)
+
+	err = row.Scan(
+		&items.ID,
+		&items.StoreID,
+		&items.Name,
+		&items.Description,
+		&items.Quantity,
+		&items.CreatedAt,
+		&items.UpdateAt,
+	)
+
+	if err != nil {
+		log.Println(err)
+		return items, exception.ErrNotFound
+	}
+
+	return items, nil
+}
+
 func (repo *itemRepositoryImpl) FindByID(ctx context.Context, id int64) (item.Item, error) {
 	var items item.Item
 
 	query := fmt.Sprintf(`SELECT id, storeID, name, description, quantity, created_at, update_at FROM %s WHERE id = ?`, repo.tableName)
+
 	stmt, err := repo.DB.PrepareContext(ctx, query)
 	if err != nil {
 		log.Println(err)
@@ -170,6 +206,36 @@ func (repo *itemRepositoryImpl) UpdateItem(ctx context.Context, id int64, params
 		ctx,
 		params.Name,
 		params.Description,
+	)
+
+	if err != nil {
+		log.Println(err)
+		return exception.ErrInternalServer
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected < 1 {
+		return exception.ErrNotFound
+	}
+
+	return nil
+}
+
+func (repo *itemRepositoryImpl) UpdateKuantitas(ctx context.Context, id int64, params item.Item) error {
+	query := fmt.Sprintf(`UPDATE %s SET quantity = ?, update_at = ? WHERE id = %d`, repo.tableName, id)
+
+	stmt, err := repo.DB.PrepareContext(ctx, query)
+	if err != nil {
+		log.Println(err)
+		return exception.ErrInternalServer
+	}
+
+	defer stmt.Close()
+
+	result, err := stmt.ExecContext(
+		ctx,
+		params.Quantity,
+		params.UpdateAt,
 	)
 
 	if err != nil {

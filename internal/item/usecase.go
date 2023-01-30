@@ -12,8 +12,8 @@ import (
 type (
 	ItemUseCase interface {
 		AddItem(ctx context.Context, storeID int64, params item.Item) response.Response
-		GetAllItem() response.Response
-		GetOneItem(ctx context.Context, id int64) response.Response
+		GetAllItems(ctx context.Context, storeID int64) response.Response
+		GetOneItem(ctx context.Context, id int64, storeID int64) response.Response
 		UpdateItem(ctx context.Context, id int64, params item.Item) response.Response
 		DeleteItem(ctx context.Context, id int64) response.Response
 	}
@@ -30,10 +30,24 @@ func NewItemUseCaseImpl(repo ItemRepository) ItemUseCase {
 }
 
 func (iu *itemUseCaseImpl) AddItem(ctx context.Context, storeID int64, params item.Item) response.Response {
-	_, err := iu.repository.FindByName(ctx, params.Name)
+	data, err := iu.repository.FindByName(ctx, params.Name)
 
 	if err == nil {
-		return response.Error(response.StatusConflicted, exception.ErrConflicted)
+		data = item.Item{
+			ID:          data.ID,
+			StoreID:     data.ID,
+			Name:        data.Name,
+			Description: data.Description,
+			Quantity:    data.Quantity + params.Quantity,
+			UpdateAt:    data.UpdateAt,
+		}
+
+		err := iu.repository.UpdateKuantitas(ctx, data.ID, data)
+		if err != nil {
+			return response.Error(response.StatusInternalServerError, exception.ErrInternalServer)
+		}
+
+		return response.Success(response.StatusOK, data)
 	}
 
 	item := item.Item{
@@ -54,18 +68,79 @@ func (iu *itemUseCaseImpl) AddItem(ctx context.Context, storeID int64, params it
 	return response.Success(response.StatusCreated, item)
 }
 
-func (iu *itemUseCaseImpl) GetAllItem() response.Response {
-	return nil
+func (iu *itemUseCaseImpl) GetAllItems(ctx context.Context, storeID int64) response.Response {
+
+	data, err := iu.repository.GetAllItem(ctx, storeID)
+
+	if err == exception.ErrNotFound {
+		return response.Error(response.StatusNotFound, exception.ErrNotFound)
+	}
+
+	if err != nil {
+		return response.Error(response.StatusInternalServerError, exception.ErrInternalServer)
+	}
+
+	return response.Success(response.StatusOK, data)
 }
 
-func (iu *itemUseCaseImpl) GetOneItem(ctx context.Context, id int64) response.Response {
-	return nil
+func (iu *itemUseCaseImpl) GetOneItem(ctx context.Context, id int64, storeID int64) response.Response {
+
+	data, err := iu.repository.FindByIDWithStoreID(ctx, id, storeID)
+
+	if err == exception.ErrNotFound {
+		return response.Error(response.StatusNotFound, exception.ErrNotFound)
+	}
+
+	if err != nil {
+		return response.Error(response.StatusInternalServerError, exception.ErrInternalServer)
+	}
+	return response.Success(response.StatusOK, data)
 }
 
 func (iu *itemUseCaseImpl) UpdateItem(ctx context.Context, id int64, params item.Item) response.Response {
-	return nil
+	data, err := iu.repository.FindByID(ctx, id)
+
+	if err == exception.ErrNotFound {
+		return response.Error(response.StatusNotFound, exception.ErrNotFound)
+	}
+
+	if err != nil {
+		return response.Error(response.StatusInternalServerError, exception.ErrInternalServer)
+	}
+
+	data = item.Item{
+		ID:          data.ID,
+		StoreID:     data.StoreID,
+		Name:        params.Name,
+		Description: params.Description,
+		Quantity:    params.Quantity,
+		UpdateAt:    time.Now(),
+	}
+
+	if err := iu.repository.UpdateItem(ctx, id, data); err != nil {
+		return response.Error(response.StatusInternalServerError, exception.ErrInternalServer)
+	}
+
+	return response.Success(response.StatusOK, data)
 }
 
 func (iu *itemUseCaseImpl) DeleteItem(ctx context.Context, id int64) response.Response {
-	return nil
+
+	data, err := iu.repository.FindByID(ctx, id)
+
+	if err == exception.ErrNotFound {
+		return response.Error(response.StatusNotFound, exception.ErrNotFound)
+	}
+
+	if err != nil {
+		return response.Error(response.StatusInternalServerError, exception.ErrInternalServer)
+	}
+
+	if err := iu.repository.DeleteItem(ctx, data.ID); err != nil {
+		return response.Error(response.StatusInternalServerError, exception.ErrInternalServer)
+	}
+
+	msg := "Success Delete Data"
+
+	return response.Success(response.StatusOK, msg)
 }
